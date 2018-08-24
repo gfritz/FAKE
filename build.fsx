@@ -260,6 +260,7 @@ let dotnetAssemblyInfos =
       "Fake.DotNet.Testing.VSTest", "Running vstest test runner"
       "Fake.DotNet.Testing.NUnit", "Running nunit test runner"
       "Fake.DotNet.Testing.OpenCover", "Code coverage with OpenCover"
+      "Fake.DotNet.Testing.DotCover", "Code coverage with DotCover"
       "Fake.DotNet.Testing.SpecFlow", "BDD with Gherkin and SpecFlow"
       "Fake.DotNet.Testing.XUnit2", "Running xunit test runner"
       "Fake.DotNet.Xamarin", "Running Xamarin builds"
@@ -273,6 +274,7 @@ let dotnetAssemblyInfos =
       "Fake.netcore", "Command line tool"
       "Fake.Runtime", "Core runtime features"
       "Fake.Sql.DacPac", "Sql Server Data Tools DacPac operations"
+      "Fake.Sql.SqlServer", "Sql Server operations"
       "Fake.Testing.Common", "Common testing data types"
       "Fake.Testing.ReportGenerator", "Convert XML coverage output to various formats"
       "Fake.Testing.SonarQube", "Analyzing your project with SonarQube"
@@ -293,6 +295,7 @@ let assemblyInfos =
 
 Target.create "SetAssemblyInfo" (fun _ ->
     for assemblyFile, attributes in assemblyInfos do
+        // This fails on AssemblyInfo.fs files that have not been created or committed yet.
         // Fixes merge conflicts in AssemblyInfo.fs files, while at the same time leaving the repository in a compilable state.
         // http://stackoverflow.com/questions/32251037/ignore-changes-to-a-tracked-file
         // Quick-fix: git ls-files -v . | grep ^S | cut -c3- | xargs git update-index --no-skip-worktree
