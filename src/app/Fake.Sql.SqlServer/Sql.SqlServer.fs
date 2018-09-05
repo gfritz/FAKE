@@ -16,46 +16,48 @@ module SqlServer =
 
     type ServerInfo = {
         Server: Server
-        ConnBuilder: SqlConnectionStringBuilder
-    }
+        ConnBuilder: SqlConnectionStringBuilder }
 
-    let getServerInfo connectionString =
-        let connBuilder = new SqlConnectionStringBuilder(connectionString)
-        let conn = new ServerConnection()
-        if not <| String.IsNullOrWhiteSpace(connBuilder.UserID) then
-            conn.LoginSecure <- false
-            conn.Login <- connBuilder.UserID
+    module ServerInfo =
+        let create connectionString =
+            let connBuilder = new SqlConnectionStringBuilder(connectionString)
+            let conn = new ServerConnection()
+            if not <| String.IsNullOrWhiteSpace(connBuilder.UserID) then
+                conn.LoginSecure <- false
+                conn.Login <- connBuilder.UserID
 
-        if not <| String.IsNullOrWhiteSpace(connBuilder.Password) then
-            conn.LoginSecure <- false
-            conn.Password <- connBuilder.Password
+            if not <| String.IsNullOrWhiteSpace(connBuilder.Password) then
+                conn.LoginSecure <- false
+                conn.Password <- connBuilder.Password
 
-        conn.ServerInstance <- connBuilder.DataSource
-        conn.Connect()
+            conn.ServerInstance <- connBuilder.DataSource
+            conn.Connect()
 
-        { Server = new Server(conn); ConnBuilder = connBuilder }
+            { Server = new Server(conn); ConnBuilder = connBuilder }
 
-    /// Gets the `Database`s from the database server
+    /// Gets the `Database`s from the database server.
     let getDatabasesFromServer (serverInfo:ServerInfo) =
         seq { for db in serverInfo.Server.Databases -> db }
 
-    /// Gets the Database names from the database server
+    /// Gets the Database names from the database server.
     let getDatabaseNamesFromServer (serverInfo:ServerInfo) =
         serverInfo
         |> getDatabasesFromServer
         |> Seq.map (fun db -> db.Name)
 
+    /// Get the name of the InitialCatalog
     let getInitialCatalog serverInfo = serverInfo.ConnBuilder.InitialCatalog
 
-    /// Gets the name or network address of the instance of SQL Server
+    /// Gets the name or network address of the instance of SQL Server.
     let getServerName serverInfo = serverInfo.ConnBuilder.DataSource
 
-    let dbExistsOnServer serverInfo dbName =
+    /// Checks that the specified `dbName` exists on the server.
+    let databaseExistsOnServer serverInfo dbName =
         let names = getDatabaseNamesFromServer serverInfo
         let searched = getInitialCatalog serverInfo
-        Trace.tracefn "Searching for database %s on server %s. Found: " searched (getServerName serverInfo)
+        Trace.tracefn "Searching for database [%s] on server [%s]. Found: " searched (getServerName serverInfo)
         names
-        |> Seq.iter (Trace.tracefn " - %s ")
+        |> Seq.iter (Trace.tracefn " - [%s] ")
 
         names
         |> Seq.exists ((=) dbName)
@@ -63,33 +65,33 @@ module SqlServer =
     /// Gets the Initial Catalog as a `Database` instance
     let getDatabase serverInfo = new Database(serverInfo.Server, getInitialCatalog serverInfo)
 
+    /// Checks the specified initial catalog exists on the database server.
     let initialCatalogExistsOnServer serverInfo =
         getInitialCatalog serverInfo
-        |> dbExistsOnServer serverInfo
+        |> databaseExistsOnServer serverInfo
 
-    let dropDb serverInfo =
+    /// Drops the database if it exists.
+    let dropDatabase serverInfo =
         if initialCatalogExistsOnServer serverInfo then
             let initialCatalog = getInitialCatalog serverInfo
-            Trace.logfn "Dropping database %s on server %s." initialCatalog (getServerName serverInfo)
+            Trace.logfn "Dropping database [%s] on server [%s]." initialCatalog (getServerName serverInfo)
             (getDatabase serverInfo).DropBackupHistory |> ignore
             initialCatalog |> serverInfo.Server.KillDatabase
-        serverInfo
 
+    /// Kills all processes on the Initial Catalog.
     let killAllProcesses serverInfo =
         let initialCatalog = getInitialCatalog serverInfo
-        Trace.logfn "Killing all processes from database %s on server %s." initialCatalog (getServerName serverInfo)
+        Trace.logfn "Killing all processes from database [%s] on server [%s]." initialCatalog (getServerName serverInfo)
         serverInfo.Server.KillAllProcesses initialCatalog
-        serverInfo
 
-    let detach serverInfo =
-        serverInfo
-        |> killAllProcesses
-        |> fun si ->
-                let initialCatalog = getInitialCatalog si
-                Trace.logfn "Detaching database %s on server %s." initialCatalog (getServerName si)
-                si.Server.DetachDatabase(initialCatalog, true)
-                si
+    /// Detaches the Initial Catalog database.
+    let detachDatabase serverInfo =
+        killAllProcesses serverInfo
+        let initialCatalog = getInitialCatalog serverInfo
+        Trace.logfn "Detaching database [%s] on server [%s]." initialCatalog (getServerName serverInfo)
+        serverInfo.Server.DetachDatabase(initialCatalog, true)
 
+    /// Attaches a database that is made up of one or more files as the Initial Catalog database, and throws when any file does not exist.
     let attach serverInfo (attachOptions:AttachOptions) files =
         let sc = new Collections.Specialized.StringCollection()
         files |> Seq.iter (fun file ->
@@ -98,15 +100,15 @@ module SqlServer =
 
         let initialCatalog = getInitialCatalog serverInfo
 
-        Trace.logfn "Attaching database %s on server %s." initialCatalog (getServerName serverInfo)
+        Trace.logfn "Attaching database [%s] on server [%s]." initialCatalog (getServerName serverInfo)
         serverInfo.Server.AttachDatabase(initialCatalog, sc, attachOptions)
-        serverInfo
 
-    let createDb serverInfo =
-        Trace.logfn "Creating database %s on server %s." (getInitialCatalog serverInfo) (getServerName serverInfo)
+    /// Creates the Initial Catalog database on the server.
+    let createDatabase serverInfo =
+        Trace.logfn "Creating database [%s] on server [%s]." (getInitialCatalog serverInfo) (getServerName serverInfo)
         (getDatabase serverInfo).Create()
-        serverInfo
 
+    /// Runs the sql file on the database.
     let runScript serverInfo sqlFile =
         Trace.logfn "Executing script %s." sqlFile
         sqlFile
@@ -115,21 +117,25 @@ module SqlServer =
 
     /// Closes the connection to the database server.
     let disconnect serverInfo =
-        Trace.logfn "Disconnecting from server %s." (getServerName serverInfo)
+        Trace.logfn "Disconnecting from server [%s]." (getServerName serverInfo)
         if isNull serverInfo.Server then
             failwith "Server is not configured."
         if isNull serverInfo.Server.ConnectionContext then
             failwith "Server.ConnectionContext is not configured."
         serverInfo.Server.ConnectionContext.Disconnect()
 
+    /// Replaces the database files given some files given by a copying function `copyF`.
     let internal replaceDatabaseFilesF connectionString attachOptions copyF =
-        connectionString
-        |> getServerInfo
-        |> fun si -> if dbExistsOnServer si (getInitialCatalog si) then detach si else si
-        |> fun si -> copyF() |> attach si attachOptions
-        |> disconnect
+        let si = ServerInfo.create connectionString
 
-    /// Replaces the database files.
+        if databaseExistsOnServer si (getInitialCatalog si)
+        then detachDatabase si
+
+        copyF() |> attach si attachOptions
+
+        disconnect si
+
+    /// Replaces the database files with one or more files.
     let replaceDatabaseFiles connectionString targetDir files attachOptions =
         replaceDatabaseFilesF connectionString attachOptions
             (fun _ ->
@@ -139,22 +145,26 @@ module SqlServer =
                     Shell.copyFile targetDir fileName
                     targetDir @@ fi.Name))
 
+    /// Replaces the database files with one or more files, and if the files are not cached
+    /// or the original files have a different write time, the cache will refresh.
     let replaceDatabaseFilesWithCache connectionString targetDir cacheDir files attachOptions =
         replaceDatabaseFilesF connectionString attachOptions
             (fun _ -> Shell.copyCached targetDir cacheDir files)
 
+    /// Drops and creates the database indicated by the connection string.
     let dropAndCreateDatabase connectionString =
-        connectionString
-        |> getServerInfo
-        |> dropDb
-        |> createDb
-        |> disconnect
+        let si = ServerInfo.create connectionString
+        dropDatabase si
+        createDatabase si
+        disconnect si
 
+    /// Runs each sql file on the database.
     let runScripts connectionString scripts =
-        let serverInfo = getServerInfo connectionString
+        let serverInfo = ServerInfo.create connectionString
         scripts |> Seq.iter (runScript serverInfo)
         disconnect serverInfo
 
+    /// Run every *.sql file in the directory on the database.
     let runScriptsFromDirectory connectionString scriptDirectory =
         System.IO.Directory.GetFiles(scriptDirectory, "*.sql")
         |> runScripts connectionString
