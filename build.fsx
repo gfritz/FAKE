@@ -542,6 +542,12 @@ Target.create "TemplateIntegrationTests" (fun _ ->
     if processResult.ExitCode <> 0 then failwithf "DotNet CLI Template Integration tests failed."
 )
 
+Target.create "SqlServerIntegrationTests" (fun _ ->
+    let processResult =
+        DotNet.exec (dtntWorkDir (srcDir </> "test" </> "Fake.Sql.SqlServer.IntegrationTests")) "bin/Release/netcoreapp2.1/Fake.Sql.SqlServer.IntegrationTests.dll" "--summary"
+    if processResult.ExitCode <> 0 then failwithf "SqlServer Integration tests failed."
+)
+
 Target.create "DotNetCoreUnitTests" (fun _ ->
     // dotnet run -p src/test/Fake.Core.UnitTests/Fake.Core.UnitTests.fsproj
     let processResult =
@@ -1171,6 +1177,9 @@ if buildLegacy then
 "_DotNetPublish_current" ?=> "DotNetCoreIntegrationTests"
 
 "DotNetCoreIntegrationTests"
+    ==> "RunTests"
+
+"SqlServerIntegrationTests"
     ==> "RunTests"
 
 (if fromArtifacts then "PrepareArtifacts" else "_DotNetPackage")

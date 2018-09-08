@@ -12,7 +12,12 @@ build_script:
 #  - ps: .\build.cmd
 on_failure:
   - appveyor PushArtifact FAKE.svclog
-test: off
+test: 
+# only assemblies to test
+  assemblies:
+    only:
+      - test-assembly-A.dll
+      - '**\*.tests.dll'
 environment:
   PAKET_BOOTSTRAPPER_TRACE: true
 
