@@ -149,7 +149,7 @@ Trace.setBuildNumber nugetVersion
 //    CoreTracing.setTraceListeners (CoreTracing.defaultConsoleTraceListener :: current)
 
 
-let dotnetSdk = lazy DotNet.install DotNet.Versions.Release_2_1_302
+let dotnetSdk = lazy DotNet.install DotNet.Versions.FromGlobalJson
 let inline dtntWorkDir wd =
     DotNet.Options.lift dotnetSdk.Value
     >> DotNet.Options.withWorkingDirectory wd
@@ -1179,9 +1179,6 @@ if buildLegacy then
 "DotNetCoreIntegrationTests"
     ==> "RunTests"
 
-"SqlServerIntegrationTests"
-    ==> "RunTests"
-
 (if fromArtifacts then "PrepareArtifacts" else "_DotNetPackage")
     =?> ("DotNetCoreIntegrationTests", not <| Environment.hasEnvironVar "SkipIntegrationTests" && not <| Environment.hasEnvironVar "SkipTests")
 "_DotNetPackage" ?=> "DotNetCoreIntegrationTests"
@@ -1192,6 +1189,14 @@ if buildLegacy then
 "_DotNetPublish_current" ?=> "BootstrapTestDotNetCore"
 
 "BootstrapTestDotNetCore"
+    ==> "RunTests"
+
+(if fromArtifacts then "PrepareArtifacts" else "_DotNetPackage")
+    =?> ("SqlServerIntegrationTests",not <| Environment.hasEnvironVar "SkipTests")
+    ==> "FullDotNetCore"
+"_DotNetPackage" ?=> "SqlServerIntegrationTests"
+
+"SqlServerIntegrationTests"
     ==> "RunTests"
 
 "DotNetPackage"
