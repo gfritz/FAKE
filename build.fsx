@@ -543,8 +543,15 @@ Target.create "TemplateIntegrationTests" (fun _ ->
 )
 
 Target.create "SqlServerIntegrationTests" (fun _ ->
+    // dotnet run -p src/test/Fake.Sql.SqlServer.IntegrationTests/Fake.Sql.SqlServer.IntegrationTests.fsproj
+    // let processResult =
+    //     DotNet.exec (dtntWorkDir (srcDir </> "test" </> "Fake.Sql.SqlServer.IntegrationTests")) "bin/Release/netcoreapp2.1/Fake.Sql.SqlServer.IntegrationTests.dll" "--summary"
+
+    // let processResult =
+    //     DotNet.exec (dtntWorkDir (srcDir </> "test" </> "Fake.Sql.SqlServer.IntegrationTests")) "bin/Release/netcoreapp2.1/Fake.Sql.SqlServer.IntegrationTests.dll" "--summary"
     let processResult =
-        DotNet.exec (dtntWorkDir (srcDir </> "test" </> "Fake.Sql.SqlServer.IntegrationTests")) "bin/Release/netcoreapp2.1/Fake.Sql.SqlServer.IntegrationTests.dll" "--summary"
+        DotNet.exec (dtntWorkDir root) "src/test/Fake.Sql.SqlServer.IntegrationTests/bin/Release/netcoreapp2.1/Fake.Sql.SqlServer.IntegrationTests.dll" "--summary"
+
     if processResult.ExitCode <> 0 then failwithf "SqlServer Integration tests failed."
 )
 
@@ -1184,19 +1191,35 @@ if buildLegacy then
 "_DotNetPackage" ?=> "DotNetCoreIntegrationTests"
 
 (if fromArtifacts then "PrepareArtifacts" else "_DotNetPublish_current")
+    =?> ("DotNetCoreIntegrationTests", not <| Environment.hasEnvironVar "SkipIntegrationTests" && not <| Environment.hasEnvironVar "SkipTests")
+    ==> "FullDotNetCore"
+"_DotNetPublish_current" ?=> "DotNetCoreIntegrationTests"
+
+// SqlServer Integration Tests
+(if fromArtifacts then "PrepareArtifacts" else "_DotNetPublish_current")
+    =?> ("SqlServerIntegrationTests", not <| Environment.hasEnvironVar "SkipIntegrationTests" && not <| Environment.hasEnvironVar "SkipTests")
+    ==> "FullDotNetCore"
+"_DotNetPublish_current" ?=> "SqlServerIntegrationTests"
+
+"SqlServerIntegrationTests"
+    ==> "RunTests"
+
+(if fromArtifacts then "PrepareArtifacts" else "_DotNetPackage")
+    =?> ("SqlServerIntegrationTests", not <| Environment.hasEnvironVar "SkipIntegrationTests" && not <| Environment.hasEnvironVar "SkipTests")
+"_DotNetPackage" ?=> "SqlServerIntegrationTests"
+
+(if fromArtifacts then "PrepareArtifacts" else "_DotNetPublish_current")
+    =?> ("SqlServerIntegrationTests", not <| Environment.hasEnvironVar "SkipIntegrationTests" && not <| Environment.hasEnvironVar "SkipTests")
+    ==> "FullDotNetCore"
+"_DotNetPublish_current" ?=> "SqlServerIntegrationTests"
+
+
+(if fromArtifacts then "PrepareArtifacts" else "_DotNetPublish_current")
     =?> ("BootstrapTestDotNetCore", not disableBootstrap && not <| Environment.hasEnvironVar "SkipTests")
     ==> "FullDotNetCore"
 "_DotNetPublish_current" ?=> "BootstrapTestDotNetCore"
 
 "BootstrapTestDotNetCore"
-    ==> "RunTests"
-
-(if fromArtifacts then "PrepareArtifacts" else "_DotNetPackage")
-    =?> ("SqlServerIntegrationTests",not <| Environment.hasEnvironVar "SkipTests")
-    ==> "FullDotNetCore"
-"_DotNetPackage" ?=> "SqlServerIntegrationTests"
-
-"SqlServerIntegrationTests"
     ==> "RunTests"
 
 "DotNetPackage"

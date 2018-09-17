@@ -24,12 +24,12 @@ let appveyorConnectionString =
       UserName = "SA"
       Password = "Password12!" }.ConnectionString
 
-let connectionString =
+let connectionStringOrDefault fallbackValue =
     if AppVeyor.detect() then appveyorConnectionString
-    else "Data Source=.; Integrated Security=True"
+    else fallbackValue
 
 let initialCatalogName = "TestDatabase"
-let serverInfo = SqlServer.ServerInfo.create connectionString
+let serverInfo = SqlServer.ServerInfo.create (connectionStringOrDefault "Data Source=.\SQLEXPRESS; Integrated Security=True")
 serverInfo.ConnBuilder.InitialCatalog <- initialCatalogName
 
 [<Tests>]
