@@ -546,6 +546,16 @@ Target.create "DotNetCoreIntegrationTests" (fun _ ->
     Trace.publish (ImportData.Nunit NunitDataVersion.Nunit) "Fake_Core_IntegrationTests.TestResults.xml"
 )
 
+Target.create "SqlServerIntegrationTests" (fun _ ->
+    let processResult =
+        DotNet.exec
+            (dtntWorkDir root)
+            "src/test/Fake.Sql.SqlServer.IntegrationTests/bin/Release/netcoreapp2.1/Fake.Sql.SqlServer.IntegrationTests.dll"
+            "--summary"
+    if processResult.ExitCode <> 0 then failwithf "Sql Server Integration tests failed."
+    Trace.publish (ImportData.Nunit NunitDataVersion.Nunit) "Fake_Sql_SqlServer_IntegrationTests.TestResults.xml"
+)
+
 Target.create "TemplateIntegrationTests" (fun _ ->
     let targetDir = srcDir </> "test" </> "Fake.DotNet.Cli.IntegrationTests"
     let processResult =
@@ -562,12 +572,12 @@ Target.create "DotNetCoreUnitTests" (fun _ ->
     if processResult.ExitCode <> 0 then failwithf "Unit-Tests failed."
     Trace.publish (ImportData.Nunit NunitDataVersion.Nunit) "Fake_Core_UnitTests.TestResults.xml"
 
-    // dotnet run --project src/test/Fake.Core.CommandLine.UnitTests/Fake.Core.CommandLine.UnitTests.fsproj
-    let processResult =
-        DotNet.exec (dtntWorkDir root) "src/test/Fake.Core.CommandLine.UnitTests/bin/Release/netcoreapp2.1/Fake.Core.CommandLine.UnitTests.dll" "--summary"
+    // // dotnet run --project src/test/Fake.Core.CommandLine.UnitTests/Fake.Core.CommandLine.UnitTests.fsproj
+    // let processResult =
+    //     DotNet.exec (dtntWorkDir root) "src/test/Fake.Core.CommandLine.UnitTests/bin/Release/netcoreapp2.1/Fake.Core.CommandLine.UnitTests.dll" "--summary"
 
-    if processResult.ExitCode <> 0 then failwithf "Unit-Tests for Fake.Core.CommandLine failed."
-    Trace.publish (ImportData.Nunit NunitDataVersion.Nunit) "Fake_Core_CommandLine_UnitTests.TestResults.xml"
+    // if processResult.ExitCode <> 0 then failwithf "Unit-Tests for Fake.Core.CommandLine failed."
+    // Trace.publish (ImportData.Nunit NunitDataVersion.Nunit) "Fake_Core_CommandLine_UnitTests.TestResults.xml"
 )
 
 Target.create "BootstrapTestDotNetCore" (fun _ ->
@@ -1171,6 +1181,15 @@ if buildLegacy then
 "_DotNetPublish_current" ?=> "DotNetCoreIntegrationTests"
 
 "DotNetCoreIntegrationTests"
+    ==> "RunTests"
+
+// Sql Server Integration Tests
+(if fromArtifacts then "PrepareArtifacts" else "_DotNetPublish_current")
+    =?> ("SqlServerIntegrationTests", not <| Environment.hasEnvironVar "SkipIntegrationTests" && not <| Environment.hasEnvironVar "SkipTests")
+    ==> "FullDotNetCore"
+"_DotNetPublish_current" ?=> "SqlServerIntegrationTests"
+
+"SqlServerIntegrationTests"
     ==> "RunTests"
 
 (if fromArtifacts then "PrepareArtifacts" else "_DotNetPackage")

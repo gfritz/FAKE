@@ -10,26 +10,30 @@ open Fake.Core
 open Fake.BuildServer
 open Fake.Sql
 
-let logger = Log.create "Sql Tests Log"
-
-type AppveyorSqlLoginDetails = {
-    Host : string
-    UserName : string
-    Password : string }
+type AppveyorSqlLoginDetails =
+    { Host : string
+      UserName : string
+      Password : string }
 with member this.ConnectionString =
         sprintf "Data Source=%s; User=%s; Password=%s" this.Host this.UserName this.Password
 
+// https://www.appveyor.com/docs/getting-started-with-appveyor-for-linux/#sql-server-2017-for-linux
 let appveyorConnectionString =
     { Host = "localhost"
       UserName = "SA"
       Password = "Password12!" }.ConnectionString
 
+/// Returns the Sql Server connection string for the detected CI server
+/// otherwise returns the provided `fallbackValue`.
 let connectionStringOrDefault fallbackValue =
     if AppVeyor.detect() then appveyorConnectionString
     else fallbackValue
 
 let initialCatalogName = "TestDatabase"
-let serverInfo = SqlServer.ServerInfo.create (connectionStringOrDefault "Data Source=.\SQLEXPRESS; Integrated Security=True")
+
+// how should someone pass in a default Data Source when testing locally?
+// argument passed to target? environment variable?
+let serverInfo = SqlServer.ServerInfo.create (connectionStringOrDefault @"Data Source=.; Integrated Security=True")
 serverInfo.ConnBuilder.InitialCatalog <- initialCatalogName
 
 [<Tests>]
