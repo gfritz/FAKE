@@ -22,19 +22,26 @@
 ///
 /// ## Sample
 ///
+///     #r "paket:
+///     nuget Fake.Core.ReleaseNotes
+///     nuget Fake.DotNet.AssemblyInfoFile
+///     nuget Fake.Core.Target //"
+///
+///     open Fake.Core
+///     open Fake.DotNet
+///
 ///     let release =
-///         ReadFile "RELEASE_NOTES.md"
-///         |> ReleaseNotesHelper.parseReleaseNotes
+///         ReleaseNotes.load "RELEASE_NOTES.md"
 ///
-///
-///     Target "AssemblyInfo" (fun _ ->
-///         CreateFSharpAssemblyInfo "src/Common/AssemblyInfo.fs"
-///           [ Attribute.Title project
-///             Attribute.Product project
-///             Attribute.Description summary
-///             Attribute.Version release.AssemblyVersion
-///             Attribute.FileVersion release.AssemblyVersion]
+///     Target.create "AssemblyInfo" (fun _ ->
+///         AssemblyInfoFile.createFSharp "src/Common/AssemblyInfo.fs"
+///           [ AssemblyInfo.Title project
+///             AssemblyInfo.Product project
+///             AssemblyInfo.Description summary
+///             AssemblyInfo.Version release.AssemblyVersion
+///             AssemblyInfo.FileVersion release.AssemblyVersion]
 ///     )
+
 [<RequireQualifiedAccess>]
 module Fake.Core.ReleaseNotes
 
